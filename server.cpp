@@ -1,89 +1,23 @@
 #include <vector>
 #include <sstream>
-#include <fstream>
 #include <tchar.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #include <thread>
-#include <filesystem>
-#include "header.hpp"
+#include <windows.h>
+#include "utils.hpp"
 
-Request::Get deserialize_get(std::string& str)
-{
-  std::vector<std::string> tokens;
-  std::stringstream ss(str);
-  std::string token;
-  std::string buffer;
-  while(std::getline(ss, token, '|'))
-  {
-    int i = 0;
-    while(std::isdigit(token.at(i)))
-    {
-      buffer.push_back(token.at(i));
-      i++; 
-    }
-    std::cout << "size: " << buffer << std::endl;
-    size_t size = std::stoi(buffer);
-    buffer.clear();
-    std::cout << "from: " << i + 1 << " ,to: " << i + size << std::endl; 
-    tokens.push_back(token.substr(i + 1, i + size));
-  }
-  Request::Get req = {
-    .path = tokens[1],
-    .et = (EntryType)std::stoi(tokens[2])
-  };
-  return req;
-}
-
-std::optional<std::string> read_folder(const std::string& path)
-{
-  try
-  {
-    if (!std::filesystem::is_directory(path))
-    {
-      std::cerr << path << " is not a directory." << std::endl;
-      return std::nullopt;
-    }
-    std::stringstream ss;
-    for (const auto& entry : std::filesystem::directory_iterator(path))
-    {
-      if (entry.is_directory())
-        ss << "📁 " << entry.path().filename().string();
-      else if (entry.is_regular_file())
-        ss << "📄 " << entry.path().filename().string();
-    }
-    return ss.str();
-  }
-  catch (const std::filesystem::filesystem_error& e)
-  {
-    std::cerr << "Filesystem error: " << e.what() << std::endl;
-    return std::nullopt;
+void handle_send(SOCKET clientSocket, std::string& response) {
+  int byteCount = send(clientSocket, response.c_str(), 200, 0);
+  if(byteCount > 0) {
+    std::cout << "Sent message: \"" << response << "\"" << std::endl;
+  } else {
+    std::cout << "Nothing was sent." << std::endl;
+    WSACleanup();
   }
 }
 
-void handle_send(SOCKET clientSocket, std::string& response);
-
-std::optional<std::string> read_file(const std::string& path)
-{
-  std::ifstream file(path);
-  if(!file.is_open())
-  {
-    std::cerr << "file " << path << " could not be opened.." << std::endl;
-    return std::nullopt;
-  }
-  std::stringstream ss;
-  std::string line;
-  while(std::getline(file, line))
-    ss << line;
-  return ss.str();
-}
-
-std::string serialize_response(std::string& content)
-{
-  return content;
-}
-
-void receive(SOCKET acceptSocket)
+void handle_receive(SOCKET acceptSocket)
 {
   char buffer[200];
   memset(buffer, 0, sizeof(buffer));
@@ -96,29 +30,10 @@ void receive(SOCKET acceptSocket)
     WSACleanup();
   }
   std::string str(buffer);
-  Request::Get req = deserialize_get(str);
-  std::cout << "request path: " << req.path << "\n" << "request et: " << (int)req.et << std::endl;
-  std::string path = BASE_PATH + req.path;
-  auto content = read_file(path);
-  if(!content.has_value())
-  {
-    std::cerr << "Couldn't read file: " << path << std::endl;
-  }
-  else
-  {
-    std::string response = serialize_response(content.value());
-    handle_send(acceptSocket, response);
-  }
-}
-
-void handle_send(SOCKET clientSocket, std::string& response) {
-  int byteCount = send(clientSocket, response.c_str(), 200, 0);
-  if(byteCount > 0) {
-    std::cout << "Sent message: \"" << response << "\"" << std::endl;
-  } else {
-    std::cout << "Nothing was sent." << std::endl;
-    WSACleanup();
-  }
+  auto req = Transformer::Deserialize::request(str);
+  auto res = process_request(req);
+  std::string response = Transformer::Serialize::response(res);
+  handle_send(acceptSocket, response);
 }
 
 int main()
@@ -182,7 +97,7 @@ int main()
       return EXIT_FAILURE;
     }
     std::cout << "Client connected.." << std::endl;
-    std::thread thread(receive, acceptSocket);
+    std::thread thread(handle_receive, acceptSocket);
     thread.detach();
   }
   close_socket(serverSocket);

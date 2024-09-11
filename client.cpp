@@ -6,7 +6,7 @@
 #include <tchar.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
-#include "header.hpp"
+#include "utils.hpp"
 
 void get(SOCKET acceptSocket) {
   char buffer[200];
@@ -43,6 +43,10 @@ void handle_recv(SOCKET acceptSocket) {
     std::cerr << "Didn't receive anything." << std::endl;
     WSACleanup();
   }
+  std::string str(buffer);
+  Res res = Transformer::Deserialize::response(str);
+  SetConsoleOutputCP(CP_UTF8); // to be able to cout emojis
+  print_res(res);
 }
 
 SOCKET create_socket()
@@ -88,38 +92,15 @@ SOCKET create_socket()
   return clientSocket;
 }
 
-std::string serialize_get(Request::Get& req)
-{
-  std::stringstream ss;
-  ss << "3,GET|" << req.path.size() << "," << req.path << "|1," << (int)req.et;
-  return ss.str();
-}
-
-Request::Get deserialize_get(std::string& str)
-{
-  std::vector<std::string> tokens;
-  std::stringstream ss(str);
-  std::string token;
-  while(std::getline(ss, token, '|'))
-  {
-    tokens.push_back(token); 
-  }
-  Request::Get req = {
-    .path = tokens[1],
-    .et = (EntryType)std::stoi(tokens[2])
-  };
-  return req;
-}
-
 void get_request(std::string& path, std::string& entity)
 {
   Request::Get req = { .path = path };
   if(entity == "file")
-    req.et = EntryType::File;
+    req.et = EntryType::FILE;
   else if(entity == "folder")
-    req.et = EntryType::Folder;
+    req.et = EntryType::DIR;
   SOCKET socket = create_socket();
-  std::string str = serialize_get(req);
+  std::string str = Transformer::Serialize::request(req);
   handle_send(socket, str);
   handle_recv(socket);
   close_socket(socket);
@@ -156,13 +137,13 @@ int main(int argc, char* argv[])
     return EXIT_FAILURE;
   }
 
-  if(request == "GET")
+  if(request == MessageType::GET)
     get_request(path, entity);
-  else if(request == "CREATE")
+  else if(request == MessageType::CREATE)
     create_request(path, entity);
-  else if(request == "UPDATE")
+  else if(request == MessageType::EDIT)
     update_request(path, entity);
-  else if(request == "REMOVE")
+  else if(request == MessageType::REMOVE)
     remove_request(path, entity);
   else
   {
