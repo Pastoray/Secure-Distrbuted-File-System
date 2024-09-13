@@ -6,21 +6,9 @@
 #include <tchar.h>
 #include <winsock2.h>
 #include <ws2tcpip.h>
+#include <unordered_map>
+#include <functional>
 #include "utils.hpp"
-
-void get(SOCKET acceptSocket) {
-  char buffer[200];
-  while(true) {
-    memset(buffer, 0, sizeof(buffer));
-    int byteCount = recv(acceptSocket, buffer, 200, 0);
-    if(byteCount > 0) {
-      std::cout << "Received message: \"" << buffer << "\"" << std::endl;
-    } else {
-      std::cout << "Didn't receive anything." << std::endl;
-      WSACleanup();
-    }
-  }
-}
 
 void handle_send(SOCKET clientSocket, std::string& req) {
   int byteCount = send(clientSocket, req.c_str(), 200, 0);
@@ -34,7 +22,7 @@ void handle_send(SOCKET clientSocket, std::string& req) {
 }
 
 void handle_recv(SOCKET acceptSocket) {
-  char buffer[200];
+  char buffer[1024];
   memset(buffer, 0, sizeof(buffer));
   int byteCount = recv(acceptSocket, buffer, 200, 0);
   if(byteCount > 0) {
@@ -44,7 +32,7 @@ void handle_recv(SOCKET acceptSocket) {
     WSACleanup();
   }
   std::string str(buffer);
-  Res res = Transformer::Deserialize::response(str);
+  Res res = Transformer::Respons::deserialize(str);
   SetConsoleOutputCP(CP_UTF8); // to be able to cout emojis
   print_res(res);
 }
@@ -59,7 +47,7 @@ SOCKET create_socket()
 
   if(wsaerr != 0) {
     std::cout << "Winsock dll not found." << std::endl;
-    return 0;
+    return EXIT_FAILURE;
   } else {
     std::cout << "Winsock dll was found!" << std::endl;
     std::cout << "Status: " << wsaData.szSystemStatus << std::endl;
@@ -70,7 +58,7 @@ SOCKET create_socket()
 
   if(clientSocket == INVALID_SOCKET) {
     std::cout << "Error at socket()." << std::endl;
-    return 0;
+    return EXIT_FAILURE;
   } else {
     std::cout << "Socket() is OK!" << std::endl;
   }
@@ -92,63 +80,56 @@ SOCKET create_socket()
   return clientSocket;
 }
 
-void get_request(std::string& path, std::string& entity)
+template<typename T, typename ...Args>
+T create_req(Args&&... args)
 {
-  Request::Get req = { .path = path };
-  if(entity == "file")
-    req.et = EntryType::FILE;
-  else if(entity == "folder")
-    req.et = EntryType::DIR;
-  SOCKET socket = create_socket();
-  std::string str = Transformer::Serialize::request(req);
-  handle_send(socket, str);
-  handle_recv(socket);
-  close_socket(socket);
-};
-
-void create_request(std::string& path, std::string& entity)
-{
-
-};
-
-void update_request(std::string& path, std::string& entity)
-{
-
-};
-
-void remove_request(std::string& path, std::string& entity)
-{
-
-};
+  return T { std::forward<Args>(args)... };
+}
 
 int main(int argc, char* argv[])
 {
-  if(argc != 4)
+  if(argc <= 2)
   {
-    std::cerr << "Wrong usage,\n"
-      << "Correct usage: ./sdfs <request> <\"file\"/\"folder\"> <path>\n"
-      << std::endl;
+    std::cerr << "Wrong usage,\nCorrect usage: ./client <request> <args...>" << std::endl;
     return EXIT_FAILURE;
   }
+  
   std::string request = argv[1], entity = argv[2], path = argv[3];
-  if(entity != "file" && entity != "folder")
+  if(entity != "file" && entity != "dir")
   {
     std::cerr << "Unrecognized entity: " << entity << std::endl;
     return EXIT_FAILURE;
   }
-
-  if(request == MessageType::GET)
-    get_request(path, entity);
-  else if(request == MessageType::CREATE)
-    create_request(path, entity);
-  else if(request == MessageType::EDIT)
-    update_request(path, entity);
-  else if(request == MessageType::REMOVE)
-    remove_request(path, entity);
+  EntryType et = (entity == "file" ? EntryType::FILE : EntryType::DIR);
+  std::unordered_map<std::string, std::function<Req()>> request_map = {
+    {MessageType::GET, [&]() -> Request::Get {
+      auto req =  create_req<Request::Get>(path, et);
+      return req;
+    }},
+    {MessageType::CREATE, [&]() -> Request::Create {
+      auto req =  create_req<Request::Create>(path, et, argv[4], argv[5]);
+      return req;
+    }},
+    {MessageType::EDIT, [&]() -> Request::Edit {
+      auto req =  create_req<Request::Edit>(path, et, argv[4], argv[5], (UpdateType)std::stoi(argv[6]));
+      return req;
+    }},
+    {MessageType::REMOVE, [&]() -> Request::Remove {
+      auto req =  create_req<Request::Remove>(path, et);
+      return req;
+    }}
+  };
+  Req req;
+  if (request_map.find(request) != request_map.end())
+    req = request_map[request]();
   else
-  {
-    std::cerr << "Unrecognized request type: " << request << std::endl ;
-    return EXIT_FAILURE;
-  }
+    err_exit("Unknown request type");
+  
+  SOCKET socket = create_socket();
+  std::string str = Transformer::Reques::serialize(req);
+  std::string encryptedStr = Transformer::Reques::encrypt(str);
+  handle_send(socket, encryptedStr);
+  handle_recv(socket);
+  close_socket(socket);
   WSACleanup();
 }

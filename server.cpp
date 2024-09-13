@@ -19,7 +19,7 @@ void handle_send(SOCKET clientSocket, std::string& response) {
 
 void handle_receive(SOCKET acceptSocket)
 {
-  char buffer[200];
+  char buffer[1024];
   memset(buffer, 0, sizeof(buffer));
   int byteCount = recv(acceptSocket, buffer, 200, 0);
   if(byteCount > 0)
@@ -29,15 +29,24 @@ void handle_receive(SOCKET acceptSocket)
     std::cout << "Didn't receive anything." << std::endl;
     WSACleanup();
   }
-  std::string str(buffer);
-  auto req = Transformer::Deserialize::request(str);
+  std::string encryptedStr(buffer);
+  std::string str = Transformer::Reques::decrypt(encryptedStr);
+  auto req = Transformer::Reques::deserialize(str);
   auto res = process_request(req);
-  std::string response = Transformer::Serialize::response(res);
-  handle_send(acceptSocket, response);
+  std::string response = Transformer::Respons::serialize(res);
+  std::string encryptedResponse = Transformer::Respons::encrypt(response);
+  handle_send(acceptSocket, encryptedResponse);
 }
 
-int main()
+int main(int argc, char* argv[])
 {
+  if(argc != 3 || std::strcmp(argv[1], "--key") != 0 || std::strlen(argv[2]) != 64)
+  {
+    std::cerr << "Wrong usage,\nCorrect usage: ./server --key <32-bytes-key>" << std::endl;
+    return EXIT_FAILURE;
+  }
+  Transformer::set_key(argv[2]);
+  
   SOCKET serverSocket, acceptSocket;
   const int PORT = 55555;
   WSADATA wsaData;

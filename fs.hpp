@@ -87,8 +87,8 @@ class FileSystem
         return std::nullopt;
       }
 
-      std::string content(std::istreambuf_iterator<char>(read_file), std::istreambuf_iterator<char>());
-      return content;
+      std::string res((std::istreambuf_iterator<char>(read_file)), std::istreambuf_iterator<char>());
+      return res;
     }
     static std::optional<std::string> remove(const std::string& path)
     {

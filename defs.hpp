@@ -45,13 +45,13 @@ namespace Request
     std::string name;
     std::optional<std::string> content; // if file
   };
-  struct Update
+  struct Edit
   {
     std::string path;
     EntryType et;
-    UpdateType ut;
     std::optional<std::string> name;
     std::optional<std::string> content;
+    UpdateType ut;
   };
   struct Remove
   {
@@ -74,7 +74,7 @@ namespace Response
     bool ok;
     std::string msg;
   };
-  struct Update
+  struct Edit
   {
     bool ok;
     std::string msg;
@@ -87,5 +87,11 @@ namespace Response
   };
 }
 
-using Res = std::variant<Response::Get, Response::Create, Response::Update, Response::Remove>;
-using Req = std::variant<Request::Get, Request::Create, Request::Update, Request::Remove>;
+using Res = std::variant<Response::Get, Response::Create, Response::Edit, Response::Remove>;
+using Req = std::variant<Request::Get, Request::Create, Request::Edit, Request::Remove>;
+
+void err_exit(const std::string& err)
+{
+  std::cerr << err << std::endl;
+  exit(EXIT_FAILURE);
+}

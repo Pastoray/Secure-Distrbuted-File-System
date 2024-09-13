@@ -57,7 +57,7 @@ void print_res(const Res& res) {
       std::cout << "OK: " << res.ok << "\n"
                 << "Message: " << res.msg << std::endl;
     }
-    void operator()(const Response::Update& res) {
+    void operator()(const Response::Edit& res) {
       std::cout << "OK: " << res.ok << "\n"
                 << "Message: " << res.msg << "\n"
                 << "Content: " << (res.content.has_value() ? res.content.value() : "") << std::endl;
@@ -110,7 +110,7 @@ Res process_request(Req& req)
     static Res operator()(Request::Create& req) 
     {
       std::stringstream ss;
-      ss << (req.et == EntryType::FILE ? "File" : "Folder") << " created successfully";
+      ss << (req.et == EntryType::FILE ? "File" : "Directory") << " created successfully";
       Response::Create res = {
         .ok = true,
         .msg = ss.str()
@@ -137,11 +137,11 @@ Res process_request(Req& req)
       }
       return res;
     }
-    static Res operator()(Request::Update& req) 
+    static Res operator()(Request::Edit& req) 
     {
       std::stringstream ss;
-      ss << "Updated " << (req.et == EntryType::FILE ? "file" : "folder") << " successfully";
-      Response::Update res = {
+      ss << "Updated " << (req.et == EntryType::FILE ? "file" : "directory") << " successfully";
+      Response::Edit res = {
         .ok = true,
         .msg = ss.str(),
       };
@@ -150,7 +150,7 @@ Res process_request(Req& req)
     static Res operator()(Request::Remove& req) 
     {
       std::stringstream ss;
-      ss << "Removed " << (req.et == EntryType::FILE ? "file" : "folder") << " successfully";
+      ss << "Removed " << (req.et == EntryType::FILE ? "file" : "directory") << " successfully";
       Response::Remove res = {
         .ok = true,
         .msg = ss.str(),
