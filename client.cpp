@@ -105,7 +105,7 @@ int main(int argc, char* argv[])
 {
   if(argc == 2)
   {
-    if(argv[1] == "?")
+    if(strcmp(argv[1], "?") == 0)
     {
       std::cout << "Usage: \n"
         << "GET [FILE/DIR] <path>\n"
@@ -114,6 +114,9 @@ int main(int argc, char* argv[])
         << "REMOVE [FILE/DIR] <path>" << std::endl;
       return EXIT_SUCCESS;
     }
+    std::cout << argv[0] << std::endl;
+    std::cout << argv[1] << std::endl;
+    // std::cout << argv[0] << std::endl;
   }
   if(argc <= 2)
   {
@@ -131,12 +134,13 @@ int main(int argc, char* argv[])
     argv[6] = edit type (edit)
   */
 
-  if(argv[2] != "FILE" && argv[2] != "DIR")
+  if(strcmp(argv[2], "FILE") != 0 && strcmp(argv[2], "DIR") != 0)
   {
-    std::cerr << "Invalid entity: " << argv[2] << std::endl;
+    std::cerr << (int)(argv[2] != "FILE") << (int)(argv[2] != "DIR") << std::endl;
+    std::cerr << "Invalid entity: " << "\"" << argv[2] << "\"" << std::endl;
     return EXIT_FAILURE;
   }
-  EntryType et = argv[2] == "FILE" ? EntryType::FILE : EntryType::DIR;
+  EntryType et = strcmp(argv[2], "FILE") == 0 ? EntryType::FILE : EntryType::DIR;
   std::unordered_map<std::string, std::function<Req()>> request_map = {
     {MessageType::GET, [&]() -> Request::Get {
       auto req =  create_req<Request::Get>(et, argv[3]);

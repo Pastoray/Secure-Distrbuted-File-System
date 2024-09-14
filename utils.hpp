@@ -64,11 +64,11 @@ Res process_request(Req& req)
       else
       {
         std::string full_path = BASE_PATH + path.value();
-        std::optional<std::string> content = std::nullopt;
-        if(req.et == EntryType::FILE)
-          content = FileSystem::File::read(full_path);
-        else if(req.et == EntryType::DIR)
-          content = FileSystem::Dir::read(full_path);
+        std::optional<std::string> content = (
+          req.et == EntryType::FILE ?
+          FileSystem::File::read(full_path) :
+          FileSystem::Dir::read(full_path)
+        );
         if(!content.has_value())
         {
           res.ok = false;
@@ -128,6 +128,27 @@ Res process_request(Req& req)
         .ok = true,
         .msg = ss.str(),
       };
+      auto path = streamline_path(req.path);
+      if(!path.has_value())
+      {
+        res.ok = false;
+        res.msg = "Invalid path";
+      }
+      else
+      {
+        std::string full_path = BASE_PATH + path.value();
+        std::optional<std::string> err = (
+          req.et == EntryType::FILE ?
+          FileSystem::File::remove(full_path) :
+          FileSystem::Dir::remove(full_path)
+        );
+        if(err.has_value())
+        {
+          res.ok = false;
+          res.msg = err.value();
+          std::cerr << err.value() << std::endl;
+        }
+      }
       return res;
     }
   };
