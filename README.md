@@ -1,1 +1,1 @@
-TODO: Encryption, CMake, Actual Docs, Polishing the code
+TODO: CMake, Docs
