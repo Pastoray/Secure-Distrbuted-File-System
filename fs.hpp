@@ -62,7 +62,7 @@ class FileSystem
       const std::string& path,
       const std::string& name,
       const std::string& content,
-      UpdateType ut
+      EditType ut
     )
     {
       if (!std::filesystem::is_regular_file(path))
@@ -71,7 +71,7 @@ class FileSystem
       std::filesystem::path new_path = std::filesystem::path(path).parent_path() / name;
       std::filesystem::rename(path, new_path);
 
-      std::ofstream file(new_path, std::ios::out | std::ios::binary | (ut == UpdateType::APPEND ? std::ios::app : std::ios::trunc));
+      std::ofstream file(new_path, std::ios::out | std::ios::binary | (ut == EditType::APPEND ? std::ios::app : std::ios::trunc));
       if (!file)
       {
         std::cerr << "Failed to open the file for writing" << std::endl;

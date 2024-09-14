@@ -25,7 +25,7 @@ enum class EntryType
   DIR
 };
 
-enum class UpdateType
+enum class EditType
 {
   OVERRIDE,
   APPEND
@@ -35,28 +35,28 @@ namespace Request
 {
   struct Get
   {
-    std::string path;
     EntryType et;
+    std::string path;
   };
   struct Create
   {
-    std::string path;
     EntryType et;
+    std::string path;
     std::string name;
     std::optional<std::string> content; // if file
   };
   struct Edit
   {
-    std::string path;
     EntryType et;
+    std::string path;
     std::optional<std::string> name;
     std::optional<std::string> content;
-    UpdateType ut;
+    EditType ut;
   };
   struct Remove
   {
-    std::string path;
     EntryType et;
+    std::string path;
   };
 }
 
