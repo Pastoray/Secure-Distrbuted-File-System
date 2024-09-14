@@ -6,7 +6,6 @@
 #include <string>
 #include <sstream>
 #include "defs.hpp"
-#include "transformer.hpp"
 #include "fs.hpp"
 
 void close_socket(SOCKET socket)
@@ -37,37 +36,11 @@ std::optional<std::string> streamline_path(std::string& path)
   std::stringstream().swap(ss);
   for(int i = 0; i < stack.size(); i++)
   {
-    std::cout << "stack at " << i << ": " << stack[i] << std::endl;
     ss << stack[i];
     if(i != stack.size() - 1)
       ss << "/";
   }
   return ss.str();
-}
-
-void print_res(const Res& res) {
-  struct Visitor {
-    void operator()(const Response::Get& res) {
-      std::cout << "OK: " << res.ok << "\n"
-                << "Entry Type: " << (int)res.et << "\n"
-                << "Message: " << res.msg << "\n"
-                << "Content: " << (res.content.has_value() ? res.content.value() : "") << std::endl;
-    }
-    void operator()(const Response::Create& res) {
-      std::cout << "OK: " << res.ok << "\n"
-                << "Message: " << res.msg << std::endl;
-    }
-    void operator()(const Response::Edit& res) {
-      std::cout << "OK: " << res.ok << "\n"
-                << "Message: " << res.msg << "\n"
-                << "Content: " << (res.content.has_value() ? res.content.value() : "") << std::endl;
-    }
-    void operator()(const Response::Remove& res) {
-      std::cout << "OK: " << res.ok << "\n"
-                << "Message: " << res.msg << std::endl;
-    }
-  };
-  std::visit(Visitor{}, res);
 }
 
 Res process_request(Req& req)

@@ -7,6 +7,7 @@
 #include <vector>
 #include <cstring>
 #include <stdlib.h>
+#include <iomanip>
 #include <openssl/aes.h>
 #include <openssl/rand.h>
 #include "defs.hpp"
@@ -83,15 +84,15 @@ class Transformer
       if(tokens[0] == MessageType::GET)
       {
         req = Request::Get {
-          .path = tokens[1],
-          .et = (EntryType)std::stoi(tokens[2])
+          .et = (EntryType)std::stoi(tokens[2]),
+          .path = tokens[1]
         };
       }
       else if(tokens[0] == MessageType::CREATE)
       {
         req = Request::Create {
-          .path = tokens[1],
           .et = (EntryType)std::stoi(tokens[2]),
+          .path = tokens[1],
           .name = tokens[3],
           .content = (tokens[4] != "" ? std::optional<std::string>(tokens[4]) : std::nullopt)
         };
@@ -99,88 +100,21 @@ class Transformer
       else if(tokens[0] == MessageType::EDIT)
       {
         req = Request::Edit {
-          .path = tokens[1],
           .et = (EntryType)std::stoi(tokens[2]),
+          .path = tokens[1],
           .name = tokens[3],
           .content = tokens[4],
-          .ut = (UpdateType)std::stoi(tokens[5]),
+          .ut = (EditType)std::stoi(tokens[5]),
         };
       }
       else if(tokens[0] == MessageType::REMOVE)
       {
         req = Request::Remove {
-          .path = tokens[1],
-          .et = (EntryType)std::stoi(tokens[2])
+          .et = (EntryType)std::stoi(tokens[2]),
+          .path = tokens[1]
         };
       }
       return req;
-    }
-    static std::string encrypt(const std::string& plaintext)
-    {
-      if (!key || std::strlen(key) != 64)
-      {
-        std::cout << key << std::endl;
-        err_exit("Invalid or missing AES key (must be 32 bytes for AES-256)");
-      }
-      
-      unsigned char iv[AES_BLOCK_SIZE];
-      if (!RAND_bytes(iv, AES_BLOCK_SIZE))
-        err_exit("Error generating random IV");
-
-      AES_KEY encryptKey;
-      if (AES_set_encrypt_key(reinterpret_cast<const unsigned char*>(key), 256, &encryptKey) < 0)
-        err_exit("Error setting encryption key");
-
-      int length = plaintext.size();
-      int paddedLength = ((length / AES_BLOCK_SIZE) + 1) * AES_BLOCK_SIZE;
-
-      std::vector<unsigned char> inputBuffer(paddedLength);
-      std::vector<unsigned char> outputBuffer(paddedLength);
-
-      // Copy the plaintext into the input buffer and apply zero padding
-      std::memcpy(inputBuffer.data(), plaintext.c_str(), length);
-      std::memset(inputBuffer.data() + length, 0, paddedLength - length);
-
-      // Encrypt the input buffer using CBC mode
-      AES_cbc_encrypt(inputBuffer.data(), outputBuffer.data(), paddedLength, &encryptKey, iv, AES_ENCRYPT);
-
-      // Prepend the IV to the encrypted data
-      std::string encryptedData(reinterpret_cast<char*>(iv), AES_BLOCK_SIZE);  // IV is 16 bytes
-      encryptedData.append(outputBuffer.begin(), outputBuffer.end());           // Append ciphertext
-
-      return encryptedData;  // Return the combined IV + ciphertext
-    }
-    static std::string decrypt(const std::string& ciphertext)
-    {
-      if (!key || std::strlen(key) != 64)
-      {
-        std::cout << key << std::endl;
-        err_exit("Invalid or missing AES key (must be 32 bytes for AES-256)");
-      }
-
-      if (ciphertext.size() < AES_BLOCK_SIZE)
-        err_exit("Ciphertext too short");
-
-      // Extract the IV from the first 16 bytes of the ciphertext
-      unsigned char iv[AES_BLOCK_SIZE];
-      std::memcpy(iv, ciphertext.data(), AES_BLOCK_SIZE);
-
-      AES_KEY decryptKey;
-      if (AES_set_decrypt_key(reinterpret_cast<const unsigned char*>(key), 256, &decryptKey) < 0)
-        err_exit("Error setting decryption key");
-
-      int ciphertextLength = ciphertext.size() - AES_BLOCK_SIZE;
-      std::vector<unsigned char> inputBuffer(ciphertextLength);
-      std::vector<unsigned char> outputBuffer(ciphertextLength);
-
-      // Copy the ciphertext (after the IV) into the input buffer
-      std::memcpy(inputBuffer.data(), ciphertext.data() + AES_BLOCK_SIZE, ciphertextLength);
-
-      // Decrypt the input buffer using CBC mode
-      AES_cbc_encrypt(inputBuffer.data(), outputBuffer.data(), ciphertextLength, &decryptKey, iv, AES_DECRYPT);
-
-      // Convert the decrypted data to a string (trim padding if necessary)
-      return std::string(outputBuffer.begin(), outputBuffer.end());
     }
   };
   struct Respons
@@ -281,83 +215,30 @@ class Transformer
       }
       return res;
     }
-    static std::string encrypt(const std::string& plaintext)
+    static void print(const Res& res)
     {
-      if (!key || std::strlen(key) != 64)
-      {
-        std::cout << key << std::endl;
-        err_exit("Invalid or missing AES key (must be 32 bytes for AES-256)");
-      }
-      
-      unsigned char iv[AES_BLOCK_SIZE];
-      if (!RAND_bytes(iv, AES_BLOCK_SIZE))
-        err_exit("Error generating random IV");
-
-      AES_KEY encryptKey;
-      if (AES_set_encrypt_key(reinterpret_cast<const unsigned char*>(key), 256, &encryptKey) < 0)
-        err_exit("Error setting encryption key");
-
-      int length = plaintext.size();
-      int paddedLength = ((length / AES_BLOCK_SIZE) + 1) * AES_BLOCK_SIZE;
-
-      std::vector<unsigned char> inputBuffer(paddedLength);
-      std::vector<unsigned char> outputBuffer(paddedLength);
-
-      // Copy the plaintext into the input buffer and apply zero padding
-      std::memcpy(inputBuffer.data(), plaintext.c_str(), length);
-      std::memset(inputBuffer.data() + length, 0, paddedLength - length);
-
-      // Encrypt the input buffer using CBC mode
-      AES_cbc_encrypt(inputBuffer.data(), outputBuffer.data(), paddedLength, &encryptKey, iv, AES_ENCRYPT);
-
-      // Prepend the IV to the encrypted data
-      std::string encryptedData(reinterpret_cast<char*>(iv), AES_BLOCK_SIZE);  // IV is 16 bytes
-      encryptedData.append(outputBuffer.begin(), outputBuffer.end());           // Append ciphertext
-
-      return encryptedData;  // Return the combined IV + ciphertext
-    }
-    static std::string decrypt(const std::string& ciphertext)
-    {
-      if (!key || std::strlen(key) != 64)
-      {
-        std::cout << key << std::endl;
-        err_exit("Invalid or missing AES key (must be 32 bytes for AES-256)");
-      }
-
-      if (ciphertext.size() < AES_BLOCK_SIZE)
-        err_exit("Ciphertext too short");
-
-      // Extract the IV from the first 16 bytes of the ciphertext
-      unsigned char iv[AES_BLOCK_SIZE];
-      std::memcpy(iv, ciphertext.data(), AES_BLOCK_SIZE);
-
-      AES_KEY decryptKey;
-      if (AES_set_decrypt_key(reinterpret_cast<const unsigned char*>(key), 256, &decryptKey) < 0)
-        err_exit("Error setting decryption key");
-
-      int ciphertextLength = ciphertext.size() - AES_BLOCK_SIZE;
-      std::vector<unsigned char> inputBuffer(ciphertextLength);
-      std::vector<unsigned char> outputBuffer(ciphertextLength);
-
-      // Copy the ciphertext (after the IV) into the input buffer
-      std::memcpy(inputBuffer.data(), ciphertext.data() + AES_BLOCK_SIZE, ciphertextLength);
-
-      // Decrypt the input buffer using CBC mode
-      AES_cbc_encrypt(inputBuffer.data(), outputBuffer.data(), ciphertextLength, &decryptKey, iv, AES_DECRYPT);
-
-      // Convert the decrypted data to a string (trim padding if necessary)
-      return std::string(outputBuffer.begin(), outputBuffer.end());
+      struct Visitor {
+        void operator()(const Response::Get& res) {
+          std::cout << "OK: " << res.ok << "\n"
+                    << "Entry Type: " << (int)res.et << "\n"
+                    << "Message: " << res.msg << "\n"
+                    << "Content: " << (res.content.has_value() ? res.content.value() : "") << std::endl;
+        }
+        void operator()(const Response::Create& res) {
+          std::cout << "OK: " << res.ok << "\n"
+                    << "Message: " << res.msg << std::endl;
+        }
+        void operator()(const Response::Edit& res) {
+          std::cout << "OK: " << res.ok << "\n"
+                    << "Message: " << res.msg << "\n"
+                    << "Content: " << (res.content.has_value() ? res.content.value() : "") << std::endl;
+        }
+        void operator()(const Response::Remove& res) {
+          std::cout << "OK: " << res.ok << "\n"
+                    << "Message: " << res.msg << std::endl;
+        }
+      };
+      std::visit(Visitor{}, res);
     }
   };
-  private:
-    static const char* key;
-  public:
-    static void set_key(const char* newKey)
-    {
-      // key = new char[strlen(newKey) + 1];
-      // strcpy(key, newKey);
-    };
 };
-
-const char* Transformer::key = "f33b77b35fe4d3e0ea2d11d673c891e9ad98a3cc1a0a1a45c20fa5ad9a34a7b7";
-
