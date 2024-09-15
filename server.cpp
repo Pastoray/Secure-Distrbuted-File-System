@@ -48,7 +48,7 @@ int main(int argc, char* argv[])
 {
   // if(argc != 3 || std::strcmp(argv[1], "--key") != 0 || std::strlen(argv[2]) != 64)
   // {
-  //   std::cerr << "Wrong usage,\nCorrect usage: ./server --key <32-bytes-key>" << std::endl;
+  //   std::cerr << "Wrong usage,\nCorrect usage: ./server --key <32-byte-key>" << std::endl;
   //   return EXIT_FAILURE;
   // }
   
