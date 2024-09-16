@@ -8,9 +8,9 @@
 #include <ws2tcpip.h>
 #include <unordered_map>
 #include <functional>
-#include "utils.hpp"
-#include "transformer.hpp"
-#include "crypto.hpp"
+#include "include/utils.hpp"
+#include "include/transformer.hpp"
+#include "include/crypto.hpp"
 
 void handle_send(SOCKET clientSocket, std::string& req)
 {
@@ -42,9 +42,9 @@ void handle_recv(SOCKET acceptSocket)
     WSACleanup();
   }
   std::string str(decryptedRes);
-  Res res = Transformer::Respons::deserialize(str);
+  Res res = Transformer::TResponse::deserialize(str);
   SetConsoleOutputCP(CP_UTF8); // to be able to cout emojis
-  Transformer::Respons::print(res);
+  Transformer::TResponse::print(res);
 }
 
 SOCKET create_socket()
@@ -101,72 +101,184 @@ T create_req(Args&&... args)
   return T { std::forward<Args>(args)... };
 }
 
+/**
+*  ./client <REQ> --entry DIR --path . --name "" --content --edit-type hi
+* argv[0] = .exe
+* argv[1] = request type
+* argv[2] = entry type
+* argv[3] = path
+* argv[4] = name (create, edit)
+* argv[5] = content (create, edit)
+* argv[6] = edit type (edit)
+*/
+std::vector<std::optional<std::string>> process_argv(int argc, char* argv[])
+{
+  std::vector<std::optional<std::string>> res;
+  if(strcmp(argv[1], "GET") == 0)
+    res.resize(3);
+
+  else if(strcmp(argv[1], "CREATE") == 0)
+    res.resize(5);
+
+  else if(strcmp(argv[1], "EDIT") == 0)
+    res.resize(6);
+
+  else if(strcmp(argv[1], "REMOVE") == 0)
+    res.resize(3);
+  else
+  {
+    std::stringstream ss;
+    ss << "Unrecognized request type: " << argv[1] << std::endl;
+    err_exit(ss.str());
+  }
+  res[0] = argv[1];
+  for(int i = 2; i < argc; i++)
+  {
+    if(strcmp(argv[i], "--entry") == 0)
+      res[1] = argv[++i];
+
+    else if(strcmp(argv[i], "--path") == 0)
+    {
+      if(argv[i + 1][0] == '"')
+      {
+        i++;
+        std::stringstream buffer;
+        buffer << std::string(argv[i++] + 1);
+        i++;
+        while(i + 1 < argc && argv[i][strlen(argv[i]) - 1] != '"')
+          buffer << argv[i++];
+        if (i < argc && argv[i][strlen(argv[i]) - 1] == '"')
+        {
+          buffer << " ";
+          buffer << std::string(argv[i], strlen(argv[i]) - 1);
+        }
+        res[2] = buffer.str();
+      }
+      else
+        res[2] = argv[++i];
+    }
+    else if(strcmp(argv[i], "--name") == 0)
+    {
+      if(res.size() >= 4)
+      {
+        if(argv[i + 1][0] == '"')
+        {
+          i++;
+          std::stringstream buffer;
+          buffer << std::string(argv[i++] + 1);
+          i++;
+          while(i + 1 < argc && argv[i][strlen(argv[i]) - 1] != '"')
+            buffer << argv[i++];
+          if (i < argc && argv[i][strlen(argv[i]) - 1] == '"')
+          {
+            buffer << " ";
+            buffer << std::string(argv[i], strlen(argv[i]) - 1);
+          }
+          res[3] = buffer.str();
+        }
+        else
+          res[3] = argv[++i];
+      }
+    }
+    else if(strcmp(argv[i], "--content") == 0)
+    {
+      if(res.size() >= 5)
+      {
+        if(argv[i + 1][0] == '"')
+        {
+          i++;
+          std::stringstream buffer;
+          buffer << std::string(argv[i++] + 1);
+          i++;
+          while(i + 1 < argc && argv[i][strlen(argv[i]) - 1] != '"')
+            buffer << argv[i++];
+          if (i < argc && argv[i][strlen(argv[i]) - 1] == '"')
+          {
+            buffer << " ";
+            buffer << std::string(argv[i], strlen(argv[i]) - 1);
+          }
+          res[4] = buffer.str();
+        }
+        else
+          res[4] = argv[++i];
+      }
+    }
+    else if(strcmp(argv[i], "--edit-type") == 0)
+    {
+      if(res.size() >= 6)
+        res[5] = argv[++i];
+    }
+  }
+  return res;
+}
+
 int main(int argc, char* argv[])
 {
-  if(argc == 2)
+  if(argc == 2 && strcmp(argv[1], "?") == 0)
   {
-    if(strcmp(argv[1], "?") == 0)
-    {
-      std::cout << "Usage: \n"
-        << "GET [FILE/DIR] <path>\n"
-        << "CREATE [FILE/DIR] <path> <name> <content (optional; only if file)>\n"
-        << "EDIT [FILE/DIR] <path> <name (optional)> <content (optional)> [OVERRIDE/APPEND]\n"
-        << "REMOVE [FILE/DIR] <path>" << std::endl;
-      return EXIT_SUCCESS;
-    }
-    std::cout << argv[0] << std::endl;
-    std::cout << argv[1] << std::endl;
-    // std::cout << argv[0] << std::endl;
+    std::cout << "Usage: \n"
+      << "GET [FILE/DIR] <path>\n"
+      << "CREATE [FILE/DIR] <path> <name> <content (optional; only if file)>\n"
+      << "EDIT [FILE/DIR] <path> <name (optional)> <content (optional)> [OVERRIDE/APPEND]\n"
+      << "REMOVE [FILE/DIR] <path>" << std::endl;
+    return EXIT_SUCCESS;
   }
+  
   if(argc <= 2)
   {
     std::cerr << "Wrong usage,\nCorrect usage: ./client <request> <args...>\n"
       << "Use \"./client ?\" for more details" << std::endl;
     return EXIT_FAILURE;
   }
-
-  /*
-    argv[1] = request type
-    argv[2] = entry type
-    argv[3] = path
-    argv[4] = name (create, edit)
-    argv[5] = content (create, edit)
-    argv[6] = edit type (edit)
-  */
-
-  if(strcmp(argv[2], "FILE") != 0 && strcmp(argv[2], "DIR") != 0)
+  std::vector<std::optional<std::string>> args = process_argv(argc, argv);
+  if(!args[1].has_value() || (args[1].value() != "FILE" && args[1].value() != "DIR"))
   {
-    std::cerr << (int)(argv[2] != "FILE") << (int)(argv[2] != "DIR") << std::endl;
-    std::cerr << "Invalid entity: " << "\"" << argv[2] << "\"" << std::endl;
+    std::cerr << "Invalid entity: " << "\""
+    << (args[1].has_value() ? args[1].value() : "")
+    << "\"" << std::endl;
     return EXIT_FAILURE;
   }
-  EntryType et = strcmp(argv[2], "FILE") == 0 ? EntryType::FILE : EntryType::DIR;
-  std::unordered_map<std::string, std::function<Req()>> request_map = {
-    {MessageType::GET, [&]() -> Request::Get {
-      auto req =  create_req<Request::Get>(et, argv[3]);
+  std::unordered_map<std::string, std::function<Req(std::vector<std::optional<std::string>>&)>> request_map = {
+    {MessageType::GET, [&](std::vector<std::optional<std::string>>& vec) -> Request::Get {
+      EntryType et = vec[1] == "FILE" ? EntryType::FILE : EntryType::DIR;
+      std::string path = vec[2].value();
+      auto req =  create_req<Request::Get>(et, path);
       return req;
     }},
-    {MessageType::CREATE, [&]() -> Request::Create {
-      auto req =  create_req<Request::Create>(et, argv[3], argv[4], argv[5]);
+    {MessageType::CREATE, [&](std::vector<std::optional<std::string>>& vec) -> Request::Create {
+      EntryType et = vec[1] == "FILE" ? EntryType::FILE : EntryType::DIR;
+      std::string path = vec[2].value(), name = vec[3].value();
+      std::optional<std::string> content = vec[4].value();
+      auto req =  create_req<Request::Create>(et, path, name, content);
       return req;
     }},
-    {MessageType::EDIT, [&]() -> Request::Edit {
-      auto req =  create_req<Request::Edit>(et, argv[3], argv[4], argv[5], (EditType)std::stoi(argv[6]));
+    {MessageType::EDIT, [&](std::vector<std::optional<std::string>>& vec) -> Request::Edit {
+      EntryType et = vec[1] == "FILE" ? EntryType::FILE : EntryType::DIR;
+      EditType ut = vec[5] == "OVERRIDE" ? EditType::OVERRIDE : EditType::APPEND;
+      std::string path = vec[2].value();
+      std::optional<std::string> name = vec[3], content = vec[4];
+      auto req =  create_req<Request::Edit>(et, path, name, content, ut);
       return req;
     }},
-    {MessageType::REMOVE, [&]() -> Request::Remove {
-      auto req =  create_req<Request::Remove>(et, argv[3]);
+    {MessageType::REMOVE, [&](std::vector<std::optional<std::string>>& vec) -> Request::Remove {
+      EntryType et = vec[1] == "FILE" ? EntryType::FILE : EntryType::DIR;
+      std::string path = vec[2].value();
+      auto req =  create_req<Request::Remove>(et, path);
       return req;
     }}
   };
   Req request;
-  if (request_map.find(argv[1]) != request_map.end())
-    request = request_map[argv[1]]();
+  if (request_map.find(args[0].value()) != request_map.end())
+    request = request_map[args[0].value()](args);
   else
-    err_exit("Unknown request type");
+  {
+    std::stringstream ss;
+    ss << "Unknown request type: " << args[0].value();
+    err_exit(ss.str());
+  }
   
   SOCKET socket = create_socket();
-  std::string str = Transformer::Reques::serialize(request);
+  std::string str = Transformer::TRequest::serialize(request);
   handle_send(socket, str);
   handle_recv(socket);
   close_socket(socket);
