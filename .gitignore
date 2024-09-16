@@ -3,6 +3,3 @@
 
 *.out
 *.exe
-
-.env
-.env.*
