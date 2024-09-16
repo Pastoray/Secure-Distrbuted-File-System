@@ -5,16 +5,19 @@
 #include <ws2tcpip.h>
 #include <thread>
 #include <windows.h>
-#include "utils.hpp"
-#include "transformer.hpp"
-#include "crypto.hpp"
+#include "include/utils.hpp"
+#include "include/transformer.hpp"
+#include "include/crypto.hpp"
 
 void handle_send(SOCKET clientSocket, std::string& res)
 {
   std::string encryptedRes = Crypto::encrypt(res);
   int byteCount = send(clientSocket, encryptedRes.c_str(), encryptedRes.size(), 0);
   if(byteCount > 0)
+  {
+    SetConsoleOutputCP(CP_UTF8); // to be able to cout emojis
     std::cout << "Sent message: \"" << res << "\"" << std::endl;
+  }
   else
   {
     std::cout << "Nothing was sent." << std::endl;
@@ -38,20 +41,14 @@ void handle_receive(SOCKET acceptSocket)
     std::cout << "Didn't receive anything." << std::endl;
     WSACleanup();
   }
-  auto req = Transformer::Reques::deserialize(decryptedReq);
+  auto req = Transformer::TRequest::deserialize(decryptedReq);
   auto res = process_request(req);
-  std::string response = Transformer::Respons::serialize(res);
+  std::string response = Transformer::TResponse::serialize(res);
   handle_send(acceptSocket, response);
 }
 
 int main(int argc, char* argv[])
 {
-  // if(argc != 3 || std::strcmp(argv[1], "--key") != 0 || std::strlen(argv[2]) != 64)
-  // {
-  //   std::cerr << "Wrong usage,\nCorrect usage: ./server --key <32-byte-key>" << std::endl;
-  //   return EXIT_FAILURE;
-  // }
-  
   SOCKET serverSocket, acceptSocket;
   const int PORT = 55555;
   WSADATA wsaData;

@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <openssl/aes.h>
 #include <openssl/rand.h>
+#include <random>
 
 class Crypto
 {
@@ -72,6 +73,18 @@ class Crypto
 
       return std::string(decrypted.begin(), decrypted.end());
     }
+    static std::string gen_rand_key(size_t length)
+    {
+      const std::string characters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      std::random_device rd;
+      std::mt19937 generator(rd());
+      std::uniform_int_distribution<> distribution(0, characters.size() - 1);
+
+      std::string key;
+      for (size_t i = 0; i < length; i++)
+        key += characters[distribution(generator)];
+      return key;
+  }
   private:
     static const std::string key;
     static std::string ciphertext_to_string(const std::vector<unsigned char> &ciphertext)
@@ -93,6 +106,30 @@ class Crypto
       }
       return ciphertext;
     }
+    static std::string read_key(const std::string& path)
+    {
+      std::ifstream envFile(path);
+      std::string line;
+      std::string prefix = "AES_KEY=";
+
+      if (envFile.is_open())
+      {
+        while (getline(envFile, line))
+        {
+            if (line.empty() || line[0] == '#')
+              continue;
+
+            if (line.find(prefix) == 0)
+            {
+              std::string key = line.substr(prefix.length());
+              envFile.close();
+              return key;
+            }
+        }
+        envFile.close();
+      }
+      return "";
+    }
 };
 
-const std::string Crypto::key = "01234567890123456789012345678901"; // temporary key for testing
+const std::string Crypto::key = Crypto::read_key("./.env.local");

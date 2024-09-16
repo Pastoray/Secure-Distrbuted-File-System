@@ -15,7 +15,7 @@
 class Transformer
 {
   public:
-  struct Reques
+  struct TRequest
   {
     static std::string serialize(const Req& req) 
     {
@@ -119,7 +119,7 @@ class Transformer
       return req;
     }
   };
-  struct Respons
+  struct TResponse
   {
     static std::string serialize(const Res& res) 
     {
