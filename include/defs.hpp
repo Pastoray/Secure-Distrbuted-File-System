@@ -4,7 +4,7 @@
 #include <optional>
 #include <variant>
 
-#define BASE_PATH "C:/Users/pc/Desktop/folder/"
+#define BASE_PATH "C:/Users/pc/Desktop/folder/" // Example Base Path
 
 struct MessageType
 {
