@@ -57,8 +57,16 @@ After building, you will have two executables: `server.exe` and `client.exe`.
   ./server
   ```
 
-- **Client**: Use the client application to interact with the server, get, upload, edit and remove files and folders. Examples:
+- **Client**: Use the client application to interact with the server, get, upload, edit and remove files and folders.
 
+  ```
+  ./client GET [FILE/DIR] <path>
+  ./client CREATE [FILE/DIR] <path> <name> <content (optional; only if file)>
+  ./client EDIT [FILE/DIR] <path> <name (optional)> <content (optional)> [OVERRIDE/APPEND]
+  ./client REMOVE [FILE/DIR] <path>
+  ```
+
+- **Examples**:
   ```
   ./client GET --entry DIR --path .
   ./client CREATE --entry FILE --path . --name "new File" --content "Hello world"
