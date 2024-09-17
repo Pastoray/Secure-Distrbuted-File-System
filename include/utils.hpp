@@ -99,7 +99,7 @@ Res process_request(Req& req)
         std::string full_path = BASE_PATH + path.value();
         auto err = (
           req.et == EntryType::FILE ?
-          FileSystem::File::create(full_path, req.name) :
+          FileSystem::File::create(full_path, req.name, req.content) :
           FileSystem::Dir::create(full_path, req.name)
         );
         if(err.has_value())

@@ -39,7 +39,7 @@ class FileSystem
         return std::nullopt;
       }
     }
-    static std::optional<std::string> create(const std::string& path, const std::string& name)
+    static std::optional<std::string> create(const std::string& path, const std::string& name, const std::optional<std::string>& content)
     {
       if (!std::filesystem::is_directory(path))
         return "Provided path is not a directory";
@@ -48,7 +48,7 @@ class FileSystem
         std::cout << "Directory does not exist";
         return "Directory does not exist";
       }
-      std::string full_path = path + "/" + name;
+      std::filesystem::path full_path = std::filesystem::path(path) / name;
       std::fstream file(full_path, std::ios::out); 
       if(!file)
       { 
@@ -56,6 +56,18 @@ class FileSystem
         return "Error in creating file"; 
       } 
       file.close();
+      if(content.has_value())
+      {
+        std::ofstream file(full_path, std::ios::out | std::ios::binary | std::ios::app);
+        if (!file)
+        {
+          std::cerr << "Failed to open the file for writing" << std::endl;
+          return "Failed to open the file for writing";
+        }
+        file << content.value();
+        file.close();
+      }
+
       return std::nullopt;
     }
     static std::optional<std::string> edit(
@@ -67,7 +79,6 @@ class FileSystem
     {
       if (!std::filesystem::is_regular_file(path))
       {
-        std::cout << "wow this is actually what ur looking for? :" << path << std::endl;
         std::cerr << "Provided path is not a file" << std::endl;
         return std::nullopt;
       }
